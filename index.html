@@ -514,7 +514,7 @@
 
     const MAX_ROUNDS = 10;
     let currentRound = 1;
-    let cardPool = []; // We only need one pool again!
+    let cardPool = []; 
     let currentCard = null;
     let currentRoundCards = []; 
     let hintLevel = 0;
@@ -594,9 +594,9 @@
 
             const shuffledQueries = allQueries.sort(() => 0.5 - Math.random());
 
-            // NEW MATH: 5 eras give 6 cards, 2 eras give 5 cards = exactly 40 unique cards!
-            const fetchPromises = shuffledQueries.map((queryObj, index) => {
-                const fetchSize = index < 5 ? 6 : 5;
+            // FIX: Ask for 8 cards from ALL 7 eras (56 total) to guarantee a buffer!
+            const fetchPromises = shuffledQueries.map((queryObj) => {
+                const fetchSize = 8;
                 const encoded = encodeURIComponent(queryObj.q);
                 return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=${fetchSize}&page=${queryObj.page}`, {
                     headers: { "X-Api-Key": apiKey }
@@ -648,7 +648,6 @@
 
         updateUI();
 
-        // Take the top 4 unique cards from the pool for this round
         cardPool = cardPool.sort(() => 0.5 - Math.random());
         currentRoundCards = cardPool.slice(0, 4);
         currentCard = currentRoundCards[0];
@@ -716,7 +715,6 @@
             setTimeout(async () => {
                 await animateSnake(true);
                 
-                // CRITICAL FIX: Throw away ALL 4 cards used in this round so they never appear again.
                 const usedIds = currentRoundCards.map(c => c.id);
                 cardPool = cardPool.filter(c => !usedIds.includes(c.id));
                 

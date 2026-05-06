@@ -6,6 +6,8 @@
     <title>What's that Pokémon Card?</title>
     <link rel="manifest" href="manifest.json">
     
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="%23ffffff" stroke="%231A1A1A" stroke-width="8"/><path d="M 4 50 A 46 46 0 0 1 96 50 Z" fill="%23E3350D" stroke="%231A1A1A" stroke-width="8"/><line x1="4" y1="50" x2="96" y2="50" stroke="%231A1A1A" stroke-width="8"/><circle cx="50" cy="50" r="14" fill="%23ffffff" stroke="%231A1A1A" stroke-width="8"/><circle cx="50" cy="50" r="5" fill="%231A1A1A"/></svg>' type="image/svg+xml">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
@@ -367,14 +369,14 @@
 
         .leaderboard-list li {
             background: rgba(0,0,0,0.2);
-            margin-bottom: 6px; /* Tightened gap */
-            padding: 8px 10px; /* Reduced vertical padding */
+            margin-bottom: 6px; 
+            padding: 8px 10px; 
             border-radius: 8px;
             display: flex;
             justify-content: space-between;
             font-family: 'Fredoka', sans-serif;
             border: 1px solid rgba(255,255,255,0.1);
-            font-size: 0.95rem; /* Slightly smaller text to fit comfortably */
+            font-size: 0.95rem; 
         }
         
         .leaderboard-list li span:first-child { font-weight: bold; color: white; }
@@ -523,7 +525,6 @@
     let isRoundActive = false;
     let streak = localStorage.getItem('pokeStreak') ? parseInt(localStorage.getItem('pokeStreak')) : 0;
     
-    // Variables to track the user's last submission for the leaderboard
     let lastSubmittedName = null;
     let lastSubmittedScore = null;
 
@@ -802,7 +803,6 @@
         btn.disabled = true;
         btn.innerText = "Submitting...";
         
-        // Save these for the leaderboard display
         lastSubmittedName = finalName;
         lastSubmittedScore = score;
 
@@ -840,13 +840,12 @@
         listEl.innerHTML = `<p style="text-align:center;">Fetching Network Data...</p>`;
 
         try {
-            // Updated limit to 5
             const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(5));
             const querySnapshot = await getDocs(q);
             
             listEl.innerHTML = "";
             let rank = 1;
-            let userInTop5 = false; // Updated variable name
+            let userInTop5 = false; 
             
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
@@ -861,7 +860,6 @@
                 rank++;
             });
 
-            // If the user didn't make the Top 5
             if (lastSubmittedName && lastSubmittedScore !== null && !userInTop5) {
                 const rankQuery = query(collection(db, "leaderboard"), where("score", ">", lastSubmittedScore));
                 const snapshot = await getCountFromServer(rankQuery);

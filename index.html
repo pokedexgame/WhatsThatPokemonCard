@@ -41,7 +41,7 @@
             background-color: var(--poke-red);
             border: 3px solid var(--poke-yellow);
             border-radius: 12px;
-            padding: 8px 15px;
+            padding: 8px 12px;
             margin-bottom: 10px;
             width: 100%;
             max-width: 420px;
@@ -67,18 +67,34 @@
 
         .header-icons {
             display: flex;
-            gap: 12px;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-end;
         }
 
-        .header-icon {
-            font-size: 1.5rem;
+        .header-btn {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.75rem;
             cursor: pointer;
             color: white;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            line-height: 1;
-            text-shadow: 2px 2px 0px var(--poke-dark);
+            transition: transform 0.2s, background 0.2s;
+            text-shadow: 1px 1px 0px var(--poke-dark);
+            background: rgba(0,0,0,0.25);
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .header-icon:hover { transform: scale(1.1); color: var(--poke-yellow); }
+
+        .header-btn:hover { 
+            background: rgba(0,0,0,0.5); 
+            color: var(--poke-yellow); 
+            transform: scale(1.05); 
+        }
 
         /* --- GAME BOARD --- */
         .game-board {
@@ -283,7 +299,10 @@
         
         .modal-body { padding: 20px 15px; font-size: 1rem; overflow-y: auto; }
         .modal-body p { margin: 0 0 15px 0; line-height: 1.4; }
-        .modal-body b { color: var(--poke-yellow); font-size: 1.1rem; }
+        
+        /* Adjusted the bold text size to prevent wrapping */
+        .modal-body b { color: var(--poke-yellow); font-size: 0.95rem; }
+        
         .modal-body .btn-container { display: flex; flex-direction: column; gap: 10px; margin-top: 15px;}
 
         /* Custom Inputs & Leaderboard Styles */
@@ -331,8 +350,8 @@
 <div class="app-banner">
     <h1 class="app-title">What's that<br>Pokémon Card?</h1>
     <div class="header-icons">
-        <div class="header-icon" title="Leaderboard" onclick="openLeaderboardModal()">🏆</div>
-        <div class="header-icon" title="Settings" onclick="openInfoModal()">⚙️</div>
+        <div class="header-btn" onclick="openLeaderboardModal()">🏆 LEADERBOARD</div>
+        <div class="header-btn" onclick="openInfoModal()">⚙️ HELP</div>
     </div>
 </div>
 
@@ -358,7 +377,7 @@
         </div>
 
         <div class="options-grid" id="optionsContainer">
-            <p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Cards...</p>
+            <p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Database...</p>
         </div>
 
         <button class="hint-btn" id="hintBtn" onclick="useHint()" disabled>Use Hint (-5 Secs)</button>
@@ -371,11 +390,11 @@
         <div class="modal-body">
             <p>Guess the Pokémon card from the small art snippet!</p>
             <p style="font-size: 0.9rem; text-align: left; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px;">
-                ✅ <b>Correct:</b> +100 Pts Base<br>
-                ⏱️ <b>Time Bonus:</b> +5 Pts/sec left<br>
-                ⚡ <b>Fast Guess:</b> +50 Pts (Under 5s, 0 Hints)<br>
-                🔥 <b>Streaks:</b> +20 Pts x Streak Level<br>
-                🔍 <b>Hints:</b> -5 Seconds off Timer
+                <b>Correct:</b> +100 Pts Base<br>
+                <b>Time Bonus:</b> +5 Pts/sec left<br>
+                <b>Fast Guess:</b> +50 Pts (Under 5s, 0 Hints)<br>
+                <b>Streaks:</b> +20 Pts x Streak Level<br>
+                <b>Hints:</b> -5 Seconds off Timer
             </p>
             <div class="btn-container">
                 <button id="installBtn" class="btn-green">📲 Install App to Home Screen</button>
@@ -511,14 +530,14 @@
         });
     }
 
-    // --- API FETCH LOGIC ---
+    // --- API FETCH LOGIC (OPTIMIZED) ---
     async function initGame() {
         updateUI(); 
         optionsContainer.innerHTML = `<p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Database...</p>`;
         
         const apiKey = "c7f8ecf9-8793-4fd6-a929-2282bf5fb09f"; 
         try {
-            const queries = [
+            const allQueries = [
                 { q: 'set.series:Base rarity:"Rare Holo"', page: Math.floor(Math.random() * 8) + 1 },
                 { q: 'set.series:"Black & White" (rarity:"Rare Ultra" OR subtypes:EX)', page: Math.floor(Math.random() * 12) + 1 },
                 { q: 'set.series:XY subtypes:EX', page: Math.floor(Math.random() * 15) + 1 },
@@ -528,7 +547,10 @@
                 { q: 'subtypes:MEGA', page: Math.floor(Math.random() * 8) + 1 }
             ];
 
-            const fetchPromises = queries.map(queryObj => {
+            // OPTIMIZATION: Only grab 4 random queries to fetch exactly 40 cards. Speeds up load time!
+            const selectedQueries = allQueries.sort(() => 0.5 - Math.random()).slice(0, 4);
+
+            const fetchPromises = selectedQueries.map(queryObj => {
                 const encoded = encodeURIComponent(queryObj.q);
                 return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=10&page=${queryObj.page}`, {
                     headers: { "X-Api-Key": apiKey }

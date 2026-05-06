@@ -433,11 +433,9 @@
 </div>
 
 <script type="module">
-    // --- FIREBASE IMPORTS ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-    // --- YOUR FIREBASE CONFIG ---
     const firebaseConfig = {
       apiKey: "AIzaSyCteuatWvIZCqfuJ7PdwAplwiGDYG7zk9s",
       authDomain: "whatsthatpokemoncard.firebaseapp.com",
@@ -447,11 +445,9 @@
       appId: "1:851406621545:web:ce715688233fe54aa00bf8"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- PWA SETUP ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.error('SW Error', err)); });
     }
@@ -471,9 +467,13 @@
         }
     });
 
-    // --- GAME STATE ---
     const MAX_ROUNDS = 10;
     let currentRound = 1;
+    
+    // We now have two pools. 
+    // masterPool: The full list to pull WRONG answers from.
+    // cardPool: The list of unused TARGET cards.
+    let masterPool = []; 
     let cardPool = [];
     let currentCard = null;
     let currentRoundCards = []; 
@@ -484,7 +484,6 @@
     let isRoundActive = false;
     let streak = localStorage.getItem('pokeStreak') ? parseInt(localStorage.getItem('pokeStreak')) : 0;
 
-    // --- DOM ELEMENTS ---
     const cardImage = document.getElementById('cardImage');
     const optionsContainer = document.getElementById('optionsContainer');
     const scoreEl = document.getElementById('scoreEl');
@@ -492,12 +491,10 @@
     const timeEl = document.getElementById('timeEl');
     const streakEl = document.getElementById('streakEl');
     const hintBtn = document.getElementById('hintBtn');
-    
     const resultBanner = document.getElementById('resultBanner');
     const resultTitle = document.getElementById('resultTitle');
     const resultMessage = document.getElementById('resultMessage');
 
-    // --- PIXEL TRANSITION SETUP ---
     const transitionEl = document.getElementById('battleTransition');
     const numBlocks = 100;
     let snakeOrder = [];
@@ -529,7 +526,6 @@
         });
     }
 
-    // --- API FETCH LOGIC (OPTIMIZED) ---
     async function initGame() {
         updateUI(); 
         optionsContainer.innerHTML = `<p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Database...</p>`;
@@ -546,7 +542,8 @@
                 { q: 'subtypes:MEGA', page: Math.floor(Math.random() * 8) + 1 }
             ];
 
-            const selectedQueries = allQueries.sort(() => 0.5 - Math.random()).slice(0, 4);
+            // HUGE OPTIMIZATION: Only 2 API Requests (~20 cards total)
+            const selectedQueries = allQueries.sort(() => 0.5 - Math.random()).slice(0, 2);
 
             const fetchPromises = selectedQueries.map(queryObj => {
                 const encoded = encodeURIComponent(queryObj.q);
@@ -561,9 +558,25 @@
             const results = await Promise.all(fetchPromises);
             let combinedData = [];
             results.forEach(data => { if (data.data) combinedData = combinedData.concat(data.data); });
-            cardPool = combinedData.filter(card => card.images && card.images.large); 
             
-            if(cardPool.length >= 4) { startRound(); } 
+            // Clean up the pool
+            let rawCards = combinedData.filter(card => card.images && card.images.large);
+            
+            // Ensure unique names in our master pool so buttons never have duplicate text
+            let uniqueNames = new Set();
+            masterPool = [];
+            for (let card of rawCards) {
+                if (!uniqueNames.has(card.name)) {
+                    uniqueNames.add(card.name);
+                    masterPool.push(card);
+                }
+            }
+
+            // Copy master pool to our target card pool
+            cardPool = [...masterPool];
+            
+            // 10 cards are all we strictly need for 10 rounds now.
+            if(cardPool.length >= 10) { startRound(); } 
             else { throw new Error("Retrying..."); }
         } catch (error) {
             optionsContainer.innerHTML = `<p style="grid-column: span 2;"><b>Error:</b> Retrying...</p>`;
@@ -571,14 +584,14 @@
         }
     }
 
-    // --- GAME LOGIC ---
     function startRound() {
         if (currentRound > MAX_ROUNDS) {
             triggerGameOver();
             return;
         }
 
-        if (cardPool.length < 4) { initGame(); return; }
+        // Failsafe
+        if (cardPool.length < 1 || masterPool.length < 4) { initGame(); return; }
 
         isRoundActive = true;
         hintLevel = 0;
@@ -591,20 +604,16 @@
 
         updateUI();
 
-        let shuffledPool = [...cardPool].sort(() => 0.5 - Math.random());
-        let uniqueCards = [];
-        let seenNames = new Set();
-        for (let card of shuffledPool) {
-            if (!seenNames.has(card.name)) {
-                seenNames.add(card.name);
-                uniqueCards.push(card);
-                if (uniqueCards.length === 4) break;
-            }
-        }
-        if (uniqueCards.length < 4) uniqueCards = shuffledPool.slice(0, 4);
+        // 1. Pick a random target card from the available cardPool
+        cardPool = cardPool.sort(() => 0.5 - Math.random());
+        currentCard = cardPool[0];
 
-        currentRoundCards = uniqueCards;
-        currentCard = currentRoundCards[0]; 
+        // 2. Get 3 random WRONG cards from the masterPool
+        let wrongOptions = masterPool.filter(c => c.name !== currentCard.name);
+        wrongOptions = wrongOptions.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+        // 3. Combine to make the 4 buttons
+        currentRoundCards = [currentCard, ...wrongOptions];
 
         cardImage.style.opacity = 0;
         cardImage.style.transition = 'none';
@@ -668,10 +677,12 @@
             resultBanner.classList.remove('show');
             setTimeout(async () => {
                 await animateSnake(true);
-                const usedIds = currentRoundCards.map(c => c.id);
-                cardPool = cardPool.filter(c => !usedIds.includes(c.id));
                 
-                currentRound++; // Advance to the next round
+                // NEW LOGIC: Only remove the single target card we just used.
+                // This preserves the rest of the pool so their names can be used as wrong answers later!
+                cardPool = cardPool.filter(c => c.id !== currentCard.id);
+                
+                currentRound++; 
                 startRound(); 
             }, 350); 
         }, 1800); 
@@ -691,8 +702,6 @@
         roundEl.innerText = currentRound > MAX_ROUNDS ? MAX_ROUNDS : currentRound;
         streakEl.innerText = streak;
     }
-
-    // --- GLOBAL FUNCTIONS (Attached to window for HTML access) ---
     
     window.checkAnswer = (selectedName) => {
         if (!isRoundActive) return;
@@ -700,7 +709,6 @@
             streak++;
             localStorage.setItem('pokeStreak', streak);
 
-            // New Stiffer Point Metrics
             let basePoints = 100;
             let timePoints = timeLeft * 10; 
             
@@ -709,9 +717,7 @@
                 fastBonus = 250;
             }
 
-            // Streak Multiplier: +0.5x for each streak level
             let streakMultiplier = 1.0 + ((streak - 1) * 0.5); 
-            
             let pointsEarned = Math.floor((basePoints + timePoints + fastBonus) * streakMultiplier);
             score += pointsEarned;
             
@@ -764,7 +770,7 @@
             });
             window.closeModals();
             window.openLeaderboardModal();
-            window.restartGame(false); // Reset stats in background
+            window.restartGame(false); 
         } catch (e) {
             console.error("Error adding score: ", e);
             btn.disabled = false;
@@ -778,8 +784,6 @@
         currentRound = 1;
         handleStreakReset();
         updateUI();
-        
-        // Wipe screen to black before fetching new cards
         animateSnake(true).then(() => {
              initGame();
         });
@@ -820,7 +824,6 @@
         document.getElementById('leaderboardModal').style.display = "none";
     };
 
-    // Kickoff
     initGame();
 </script>
 

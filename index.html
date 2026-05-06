@@ -594,7 +594,6 @@
 
             const shuffledQueries = allQueries.sort(() => 0.5 - Math.random());
 
-            // FIX: Ask for 8 cards from ALL 7 eras (56 total) to guarantee a buffer!
             const fetchPromises = shuffledQueries.map((queryObj) => {
                 const fetchSize = 8;
                 const encoded = encodeURIComponent(queryObj.q);
@@ -728,6 +727,12 @@
         isRoundActive = false;
         clearInterval(timerInterval);
         
+        // BUG FIX: Reset the submit button and input field for a fresh game over screen!
+        const btn = document.querySelector('#submitScoreModal .btn-green');
+        btn.disabled = false;
+        btn.innerText = "Submit to Leaderboard";
+        document.getElementById('playerName').value = ""; 
+
         document.getElementById('finalScoreEl').innerText = score + " Pts";
         document.getElementById('submitScoreModal').style.display = 'flex';
     }

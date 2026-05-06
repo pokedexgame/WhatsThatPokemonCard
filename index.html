@@ -367,13 +367,14 @@
 
         .leaderboard-list li {
             background: rgba(0,0,0,0.2);
-            margin-bottom: 8px;
-            padding: 10px;
+            margin-bottom: 6px; /* Tightened gap */
+            padding: 8px 10px; /* Reduced vertical padding */
             border-radius: 8px;
             display: flex;
             justify-content: space-between;
             font-family: 'Fredoka', sans-serif;
             border: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.95rem; /* Slightly smaller text to fit comfortably */
         }
         
         .leaderboard-list li span:first-child { font-weight: bold; color: white; }
@@ -462,7 +463,7 @@
 
 <div class="modal-overlay" id="leaderboardModal">
     <div class="modal-content">
-        <div class="modal-header"><h2>Top 10 Trainers</h2></div>
+        <div class="modal-header"><h2>Top 5 Trainers</h2></div>
         <div class="modal-body">
             <ul class="leaderboard-list" id="leaderboardList">
                 <p style="text-align:center;">Loading scores...</p>
@@ -476,7 +477,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCteuatWvIZCqfuJ7PdwAplwiGDYG7zk9s",
@@ -521,6 +522,10 @@
     let timerInterval;
     let isRoundActive = false;
     let streak = localStorage.getItem('pokeStreak') ? parseInt(localStorage.getItem('pokeStreak')) : 0;
+    
+    // Variables to track the user's last submission for the leaderboard
+    let lastSubmittedName = null;
+    let lastSubmittedScore = null;
 
     const cardImage = document.getElementById('cardImage');
     const optionsContainer = document.getElementById('optionsContainer');
@@ -796,6 +801,10 @@
         
         btn.disabled = true;
         btn.innerText = "Submitting...";
+        
+        // Save these for the leaderboard display
+        lastSubmittedName = finalName;
+        lastSubmittedScore = score;
 
         try {
             await addDoc(collection(db, "leaderboard"), {
@@ -831,16 +840,36 @@
         listEl.innerHTML = `<p style="text-align:center;">Fetching Network Data...</p>`;
 
         try {
-            const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
+            // Updated limit to 5
+            const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(5));
             const querySnapshot = await getDocs(q);
             
             listEl.innerHTML = "";
             let rank = 1;
+            let userInTop5 = false; // Updated variable name
+            
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
-                listEl.innerHTML += `<li><span>#${rank} ${data.name}</span> <span>${data.score}</span></li>`;
+                let isUser = (lastSubmittedName === data.name && lastSubmittedScore === data.score);
+                
+                if (isUser) {
+                    userInTop5 = true;
+                    listEl.innerHTML += `<li style="background: rgba(255, 203, 5, 0.2); border-color: var(--poke-yellow);"><span>#${rank} ${data.name}</span> <span>${data.score}</span></li>`;
+                } else {
+                    listEl.innerHTML += `<li><span>#${rank} ${data.name}</span> <span>${data.score}</span></li>`;
+                }
                 rank++;
             });
+
+            // If the user didn't make the Top 5
+            if (lastSubmittedName && lastSubmittedScore !== null && !userInTop5) {
+                const rankQuery = query(collection(db, "leaderboard"), where("score", ">", lastSubmittedScore));
+                const snapshot = await getCountFromServer(rankQuery);
+                const actualRank = snapshot.data().count + 1;
+                
+                listEl.innerHTML += `<li style="text-align: center; background: transparent; border: none; padding: 2px; margin: 0; font-size: 0.8rem;">...</li>`;
+                listEl.innerHTML += `<li style="background: rgba(255, 203, 5, 0.2); border-color: var(--poke-yellow);"><span>#${actualRank} ${lastSubmittedName}</span> <span>${lastSubmittedScore}</span></li>`;
+            }
 
             if (listEl.innerHTML === "") {
                 listEl.innerHTML = `<p style="text-align:center;">No scores yet. Be the first!</p>`;

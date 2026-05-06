@@ -469,10 +469,6 @@
 
     const MAX_ROUNDS = 10;
     let currentRound = 1;
-    
-    // We now have two pools. 
-    // masterPool: The full list to pull WRONG answers from.
-    // cardPool: The list of unused TARGET cards.
     let masterPool = []; 
     let cardPool = [];
     let currentCard = null;
@@ -542,12 +538,15 @@
                 { q: 'subtypes:MEGA', page: Math.floor(Math.random() * 8) + 1 }
             ];
 
-            // HUGE OPTIMIZATION: Only 2 API Requests (~20 cards total)
-            const selectedQueries = allQueries.sort(() => 0.5 - Math.random()).slice(0, 2);
+            // Shuffle the 7 eras so the distribution is random every time
+            const shuffledQueries = allQueries.sort(() => 0.5 - Math.random());
 
-            const fetchPromises = selectedQueries.map(queryObj => {
+            const fetchPromises = shuffledQueries.map((queryObj, index) => {
+                // The first 3 eras will request 2 cards, the remaining 4 will request 1 card.
+                // 3 * 2 = 6 cards. 4 * 1 = 4 cards. Total = exactly 10 cards.
+                const fetchSize = index < 3 ? 2 : 1;
                 const encoded = encodeURIComponent(queryObj.q);
-                return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=10&page=${queryObj.page}`, {
+                return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=${fetchSize}&page=${queryObj.page}`, {
                     headers: { "X-Api-Key": apiKey }
                 }).then(res => {
                     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -559,10 +558,8 @@
             let combinedData = [];
             results.forEach(data => { if (data.data) combinedData = combinedData.concat(data.data); });
             
-            // Clean up the pool
             let rawCards = combinedData.filter(card => card.images && card.images.large);
             
-            // Ensure unique names in our master pool so buttons never have duplicate text
             let uniqueNames = new Set();
             masterPool = [];
             for (let card of rawCards) {
@@ -572,10 +569,8 @@
                 }
             }
 
-            // Copy master pool to our target card pool
             cardPool = [...masterPool];
             
-            // 10 cards are all we strictly need for 10 rounds now.
             if(cardPool.length >= 10) { startRound(); } 
             else { throw new Error("Retrying..."); }
         } catch (error) {
@@ -590,7 +585,6 @@
             return;
         }
 
-        // Failsafe
         if (cardPool.length < 1 || masterPool.length < 4) { initGame(); return; }
 
         isRoundActive = true;
@@ -604,15 +598,12 @@
 
         updateUI();
 
-        // 1. Pick a random target card from the available cardPool
         cardPool = cardPool.sort(() => 0.5 - Math.random());
         currentCard = cardPool[0];
 
-        // 2. Get 3 random WRONG cards from the masterPool
         let wrongOptions = masterPool.filter(c => c.name !== currentCard.name);
         wrongOptions = wrongOptions.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-        // 3. Combine to make the 4 buttons
         currentRoundCards = [currentCard, ...wrongOptions];
 
         cardImage.style.opacity = 0;
@@ -678,8 +669,6 @@
             setTimeout(async () => {
                 await animateSnake(true);
                 
-                // NEW LOGIC: Only remove the single target card we just used.
-                // This preserves the rest of the pool so their names can be used as wrong answers later!
                 cardPool = cardPool.filter(c => c.id !== currentCard.id);
                 
                 currentRound++; 

@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What's that Pokémon Card?</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        /* --- POKÉMON COLOR THEME & VARIABLES --- */
+        :root {
+            --poke-red: #E3350D;
+            --poke-blue: #3164B5;
+            --poke-yellow: #FFCB05;
+            --poke-yellow-dark: #C7A008;
+            --poke-dark: #1A1A1A;
+            --pos-x: 50%;
+            --pos-y: 50%;
+        }
+
+        body {
+            background: radial-gradient(circle at top center, #417BDB, var(--poke-blue));
+            color: white;
+            font-family: 'Outfit', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100dvh; 
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden; 
+        }
+
+        /* --- APP BANNER --- */
+        .app-banner {
+            background-color: var(--poke-red);
+            border: 3px solid var(--poke-yellow);
+            border-radius: 12px;
+            padding: 8px 15px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 0 var(--poke-dark), 0 8px 15px rgba(0,0,0,0.3);
+            flex-shrink: 0; 
+        }
+
+        .app-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--poke-yellow);
+            text-shadow: 2px 2px 0px var(--poke-dark), -1px -1px 0px var(--poke-dark), 1px -1px 0px var(--poke-dark), -1px 1px 0px var(--poke-dark);
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.1;
+        }
+
+        .settings-icon {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            line-height: 1;
+            text-shadow: 2px 2px 0px var(--poke-dark);
+        }
+        .settings-icon:hover { transform: rotate(90deg) scale(1.1); color: var(--poke-yellow); }
+
+        /* --- GAME BOARD --- */
+        .game-board {
+            background-color: var(--poke-blue);
+            border: 4px solid var(--poke-yellow);
+            border-radius: 16px;
+            padding: 12px;
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+            box-shadow: 0 6px 0 var(--poke-dark), 0 10px 20px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            flex: 1; 
+            min-height: 0; 
+        }
+
+        /* --- STATS GRID --- */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .stat-pill {
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-pill.global-stat { background-color: rgba(0, 0, 0, 0.15); }
+        
+        .stat-value {
+            color: var(--poke-yellow);
+            font-size: 1rem;
+            text-shadow: 1px 1px 0px black;
+        }
+
+        /* --- FLEXIBLE SCALING CARD CONTAINER --- */
+        .card-scale-container {
+            flex: 1; 
+            min-height: 0; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        /* --- THE FLASHLIGHT EFFECT --- */
+        .card-wrapper {
+            background-color: var(--poke-dark);
+            height: 100%;
+            max-height: 380px; 
+            aspect-ratio: 2.5 / 3.5; 
+            border-radius: 12px;
+            border: 3px solid white;
+            box-shadow: inset 0 0 20px black, 0 5px 15px rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden; 
+        }
+
+        .mystery-card {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px; 
+        }
+
+        /* Dynamic Hint Classes */
+        .hint-0 { clip-path: circle(8% at var(--pos-x) var(--pos-y)); filter: grayscale(100%); }
+        .hint-1 { clip-path: circle(15% at var(--pos-x) var(--pos-y)); filter: grayscale(100%); }
+        .hint-2 { clip-path: circle(25% at var(--pos-x) var(--pos-y)); filter: grayscale(100%); }
+        .hint-3 { clip-path: circle(40% at var(--pos-x) var(--pos-y)); filter: grayscale(0%); }
+        .reveal-full { clip-path: circle(150% at 50% 50%); filter: grayscale(0%); }
+
+        /* --- RETRO PIXEL BATTLE TRANSITION --- */
+        .battle-transition {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            z-index: 20; 
+            pointer-events: none;
+        }
+        .pixel-block {
+            background-color: #1A1A1A; 
+            opacity: 0;
+        }
+        .pixel-block.active {
+            opacity: 1;
+        }
+
+        /* --- CONTROLS AREA --- */
+        .controls-wrapper {
+            position: relative;
+            width: 100%;
+            flex-shrink: 0; 
+        }
+
+        /* --- IN-GAME RESULT BANNER --- */
+        .result-banner {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26, 26, 26, 0.95);
+            border: 3px solid var(--poke-yellow);
+            border-radius: 10px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(40px) scale(0.9);
+            z-index: 10;
+            backdrop-filter: blur(4px);
+        }
+
+        .result-banner.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto; 
+        }
+
+        .result-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.5rem;
+            margin: 0 0 2px 0;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px black;
+        }
+
+        .result-message {
+            font-size: 1rem;
+            margin: 0;
+            color: white;
+            font-weight: 700;
+            text-align: center;
+            white-space: pre-line;
+        }
+
+        /* --- BONUS BADGES --- */
+        .bonus-badge {
+            display: inline-block;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            margin: 4px 3px 0 3px;
+            border-radius: 6px;
+            border: 2px solid white;
+            text-transform: uppercase;
+            box-shadow: 0 3px 0 var(--poke-dark);
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+        .badge-fast { background-color: #00E5FF; color: var(--poke-dark); }
+        .badge-streak { background-color: #FF5722; color: white; text-shadow: 1px 1px 0 rgba(0,0,0,0.3); }
+
+        /* --- SLIMMED TACTILE BUTTONS --- */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px; 
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: var(--poke-yellow);
+            color: var(--poke-dark);
+            border: 2px solid white; 
+            padding: 8px 4px; 
+            font-size: 0.85rem; 
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 0 var(--poke-yellow-dark), 0 4px 4px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            letter-spacing: 0px;
+            white-space: nowrap; 
+            overflow: hidden;
+            text-overflow: ellipsis; 
+        }
+
+        button:active:not(:disabled) { 
+            transform: translateY(4px); 
+            box-shadow: 0 0px 0 var(--poke-yellow-dark), 0 0px 0px rgba(0,0,0,0);
+        }
+        
+        button:hover:not(:disabled) { background-color: #ffe04d; }
+        
+        button:disabled { 
+            background-color: #cccccc;
+            border-color: #999;
+            color: #666;
+            box-shadow: 0 4px 0 #999;
+            cursor: not-allowed; 
+            transform: none;
+        }
+        
+        .hint-btn {
+            background-color: white;
+            color: var(--poke-red);
+            box-shadow: 0 4px 0 #cccccc, 0 4px 4px rgba(0,0,0,0.3);
+            width: 100%;
+            padding: 10px; 
+            font-size: 0.9rem;
+        }
+        
+        .hint-btn:active:not(:disabled) { box-shadow: 0 0px 0 #cccccc; }
+
+        /* --- INFO SETTINGS MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--poke-blue);
+            border: 4px solid var(--poke-yellow);
+            border-radius: 16px;
+            width: 85%;
+            max-width: 340px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 0 var(--poke-dark), 0 20px 40px rgba(0,0,0,0.6);
+            overflow: hidden;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+        .modal-header {
+            background-color: var(--poke-red);
+            padding: 12px;
+            border-bottom: 3px solid var(--poke-yellow);
+        }
+
+        .modal-header h2 { margin: 0; font-family: 'Fredoka', sans-serif; font-size: 1.3rem; color: white; text-transform: uppercase; text-shadow: 2px 2px 0px var(--poke-dark); }
+        .modal-body { padding: 20px 15px; font-size: 1rem; }
+        .modal-body p { margin: 0 0 15px 0; line-height: 1.4; }
+        .modal-body b { color: var(--poke-yellow); font-size: 1.1rem; }
+        .modal-body .btn-container { display: flex; flex-direction: column; gap: 10px; }
+
+        #installBtn { 
+            background-color: #4CAF50; 
+            color: white; 
+            border-color: white; 
+            box-shadow: 0 4px 0 #2E7D32; 
+            padding: 10px;
+        }
+        #installBtn:active:not(:disabled) { box-shadow: 0 0px 0 #2E7D32; transform: translateY(4px); }
+        .modal-body .hint-btn { box-shadow: 0 4px 0 #cccccc; transform: none; }
+        .modal-body .hint-btn:active { box-shadow: 0 0px 0 #cccccc; transform: translateY(4px); }
+    </style>
+</head>
+<body>
+
+<div class="app-banner">
+    <h1 class="app-title">What's that<br>Pokémon Card?</h1>
+    <div class="settings-icon" onclick="openInfoModal()">⚙️</div>
+</div>
+
+<div class="game-board">
+    <div class="stats">
+        <div class="stat-pill">Score: <span class="stat-value" id="scoreEl">0</span></div>
+        <div class="stat-pill">Time: <span class="stat-value" id="timeEl">30</span>s</div>
+        <div class="stat-pill global-stat">Best: <span class="stat-value" id="highScoreEl">0</span></div>
+        <div class="stat-pill global-stat">Streak: <span class="stat-value" id="streakEl">0</span></div>
+    </div>
+
+    <div class="card-scale-container">
+        <div class="card-wrapper">
+            <div id="battleTransition" class="battle-transition"></div>
+            <img id="cardImage" class="mystery-card" alt="Mystery Card" style="opacity: 0;">
+        </div>
+    </div>
+
+    <div class="controls-wrapper">
+        <div id="resultBanner" class="result-banner">
+            <h2 id="resultTitle" class="result-title">CORRECT!</h2>
+            <div id="resultMessage" class="result-message">+175 Pts</div>
+        </div>
+
+        <div class="options-grid" id="optionsContainer">
+            <p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Cards...</p>
+        </div>
+
+        <button class="hint-btn" id="hintBtn" onclick="useHint()" disabled>Use Hint (-5 Secs)</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="infoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>How to Play</h2>
+        </div>
+        <div class="modal-body">
+            <p>Guess the Pokémon card from the small art snippet!</p>
+            <p style="font-size: 0.9rem; text-align: left; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 10px;">
+                ✅ <b>Correct:</b> +100 Pts Base<br>
+                ⏱️ <b>Time Bonus:</b> +5 Pts/sec left<br>
+                ⚡ <b>Fast Guess:</b> +50 Pts (Under 5s, 0 Hints)<br>
+                🔥 <b>Streaks:</b> +20 Pts x Streak Level<br>
+                🔍 <b>Hints:</b> -5 Seconds off Timer
+            </p>
+            <div class="btn-container">
+                <button id="installBtn">📲 Install App to Home Screen</button>
+                <button class="hint-btn" onclick="closeInfoModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- PWA SETUP ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(err => console.error('SW Error', err)); });
+    }
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+    });
+
+    document.getElementById('installBtn').addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                document.getElementById('installBtn').innerText = "✅ Installed Successfully";
+                document.getElementById('installBtn').disabled = true;
+            }
+            deferredPrompt = null;
+        } else {
+            alert("To install the app:\n\n🍎 iOS Safari: Tap the Share icon at the bottom, then 'Add to Home Screen'.\n\n🤖 Android/Chrome: Tap the browser menu (⋮) and select 'Install app' or 'Add to Home screen'.\n\n(If you've already installed it, check your device's home screen!)");
+        }
+    });
+
+    // --- GAME STATE & LOCAL STORAGE ---
+    let cardPool = [];
+    let currentCard = null;
+    let currentRoundCards = []; 
+    let hintLevel = 0;
+    let score = 0;
+    let timeLeft = 30; 
+    let timerInterval;
+    let isRoundActive = false;
+    
+    let highScore = localStorage.getItem('pokeHighScore') ? parseInt(localStorage.getItem('pokeHighScore')) : 0;
+    let streak = localStorage.getItem('pokeStreak') ? parseInt(localStorage.getItem('pokeStreak')) : 0;
+
+    // --- DOM ELEMENTS ---
+    const cardImage = document.getElementById('cardImage');
+    const optionsContainer = document.getElementById('optionsContainer');
+    const scoreEl = document.getElementById('scoreEl');
+    const timeEl = document.getElementById('timeEl');
+    const highScoreEl = document.getElementById('highScoreEl');
+    const streakEl = document.getElementById('streakEl');
+    const hintBtn = document.getElementById('hintBtn');
+    
+    const resultBanner = document.getElementById('resultBanner');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultMessage = document.getElementById('resultMessage');
+    const infoModal = document.getElementById('infoModal');
+
+    // --- PIXEL TRANSITION SETUP ---
+    const transitionEl = document.getElementById('battleTransition');
+    const numBlocks = 100;
+    let snakeOrder = [];
+    
+    for(let i = 0; i < numBlocks; i++) {
+        let block = document.createElement('div');
+        block.className = 'pixel-block';
+        transitionEl.appendChild(block);
+    }
+    
+    for (let r = 0; r < 10; r++) {
+        if (r % 2 === 0) {
+            for (let c = 0; c < 10; c++) snakeOrder.push(r * 10 + c);
+        } else {
+            for (let c = 9; c >= 0; c--) snakeOrder.push(r * 10 + c);
+        }
+    }
+    const pixelBlocks = document.querySelectorAll('.pixel-block');
+
+    function animateSnake(isWipingIn) {
+        return new Promise(resolve => {
+            let delay = 0;
+            snakeOrder.forEach((index, i) => {
+                setTimeout(() => {
+                    if(isWipingIn) {
+                        pixelBlocks[index].classList.add('active');
+                    } else {
+                        pixelBlocks[index].classList.remove('active');
+                    }
+                }, delay);
+                delay += 8; 
+            });
+            setTimeout(resolve, delay + 100);
+        });
+    }
+
+    // --- INITIALIZATION (7-ERA SPECIFIC FETCH) ---
+    async function initGame() {
+        updateUI(); 
+        optionsContainer.innerHTML = `<p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Mixing Eras...</p>`;
+        
+        const apiKey = "c7f8ecf9-8793-4fd6-a929-2282bf5fb09f"; 
+        
+        try {
+            // Pull exactly 10 cards from all 7 ERAS to create a balanced 70-card rotating pool
+            const queries = [
+                // 1. Vintage (Base Series Holos) - ~8 pages of 10
+                { q: 'set.series:Base rarity:"Rare Holo"', page: Math.floor(Math.random() * 8) + 1 },
+                
+                // 2. Black & White (EX & Full Arts) - ~12 pages of 10
+                { q: 'set.series:"Black & White" (rarity:"Rare Ultra" OR subtypes:EX)', page: Math.floor(Math.random() * 12) + 1 },
+                
+                // 3. XY (EXs only - no Megas here) - ~15 pages of 10
+                { q: 'set.series:XY subtypes:EX', page: Math.floor(Math.random() * 15) + 1 },
+
+                // 4. Sun & Moon (GX & Tag Team) - ~30 pages of 10
+                { q: 'set.series:"Sun & Moon" (subtypes:GX OR subtypes:"TAG TEAM")', page: Math.floor(Math.random() * 30) + 1 },
+                
+                // 5. Sword & Shield (Galleries & Ultras) - ~40 pages of 10
+                { q: 'set.series:"Sword & Shield" (rarity:"Trainer Gallery Rare Holo*" OR set.id:swsh12pt5gg OR rarity:"Rare Ultra")', page: Math.floor(Math.random() * 40) + 1 },
+                
+                // 6. Scarlet & Violet (Illustration Rares) - ~20 pages of 10
+                { q: 'set.series:"Scarlet & Violet" (rarity:"Illustration Rare" OR rarity:"Special Illustration Rare")', page: Math.floor(Math.random() * 20) + 1 },
+
+                // 7. Megas (Standing as their own era) - ~8 pages of 10
+                { q: 'subtypes:MEGA', page: Math.floor(Math.random() * 8) + 1 }
+            ];
+
+            // Use pageSize=10 to grab 10 distinct cards from every major generation/type
+            const fetchPromises = queries.map(queryObj => {
+                const encoded = encodeURIComponent(queryObj.q);
+                return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=10&page=${queryObj.page}`, {
+                    headers: { "X-Api-Key": apiKey }
+                }).then(res => {
+                    if (!res.ok) throw new Error(`API error: ${res.status}`);
+                    return res.json();
+                });
+            });
+
+            const results = await Promise.all(fetchPromises);
+            
+            let combinedData = [];
+            results.forEach(data => {
+                if (data.data) {
+                    combinedData = combinedData.concat(data.data);
+                }
+            });
+
+            cardPool = combinedData.filter(card => card.images && card.images.large); 
+            
+            if(cardPool.length >= 4) {
+                startRound();
+            } else {
+                throw new Error("Too few valid cards generated. Retrying...");
+            }
+        } catch (error) {
+            optionsContainer.innerHTML = `<p style="grid-column: span 2; font-size: 0.9rem;"><b>Error:</b> ${error.message}</p>`;
+            setTimeout(initGame, 2000);
+        }
+    }
+
+    // --- GAME LOGIC ---
+    function startRound() {
+        // Drop below 4 cards means we ran out of our 70-card batch. Fetch again!
+        if (cardPool.length < 4) {
+            initGame();
+            return;
+        }
+
+        isRoundActive = true;
+        hintLevel = 0;
+        timeLeft = 30; 
+        
+        const randX = Math.floor(Math.random() * 60) + 20;
+        const randY = Math.floor(Math.random() * 40) + 30;
+        
+        document.documentElement.style.setProperty('--pos-x', `${randX}%`);
+        document.documentElement.style.setProperty('--pos-y', `${randY}%`);
+
+        updateUI();
+
+        let shuffledPool = [...cardPool].sort(() => 0.5 - Math.random());
+        
+        let uniqueCards = [];
+        let seenNames = new Set();
+        for (let card of shuffledPool) {
+            if (!seenNames.has(card.name)) {
+                seenNames.add(card.name);
+                uniqueCards.push(card);
+                if (uniqueCards.length === 4) break;
+            }
+        }
+
+        if (uniqueCards.length < 4) uniqueCards = shuffledPool.slice(0, 4);
+
+        currentRoundCards = uniqueCards;
+        currentCard = currentRoundCards[0]; 
+
+        cardImage.style.opacity = 0;
+        cardImage.style.transition = 'none';
+        cardImage.className = 'mystery-card hint-0';
+        
+        cardImage.onload = () => {
+            void cardImage.offsetWidth;
+            cardImage.style.transition = 'clip-path 0.5s ease, filter 0.5s ease, opacity 0.3s ease';
+            cardImage.style.opacity = 1;
+            
+            hintBtn.disabled = false;
+            hintBtn.innerText = "Use Hint (-5 Secs)";
+            
+            let options = [...currentRoundCards].sort(() => 0.5 - Math.random());
+            optionsContainer.innerHTML = '';
+            options.forEach(optionCard => {
+                const btn = document.createElement('button');
+                btn.innerText = optionCard.name;
+                btn.title = optionCard.name; 
+                btn.onclick = () => checkAnswer(optionCard.name);
+                optionsContainer.appendChild(btn);
+            });
+
+            animateSnake(false);
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(handleTimer, 1000);
+        };
+        
+        cardImage.src = currentCard.images.large;
+    }
+
+    function useHint() {
+        if (hintLevel < 3 && isRoundActive) {
+            hintLevel++;
+            timeLeft -= 5;
+            
+            if (timeLeft <= 0) {
+                timeLeft = 0; 
+                handleStreakReset();
+                endRound(false, "Out of Time!");
+                return;
+            }
+
+            cardImage.className = `mystery-card hint-${hintLevel}`;
+            updateUI();
+            
+            if (hintLevel === 3) {
+                hintBtn.disabled = true;
+                hintBtn.innerText = "Max Hints Used";
+            }
+        }
+    }
+
+    function handleTimer() {
+        timeLeft--;
+        updateUI();
+        if (timeLeft <= 0) {
+            handleStreakReset();
+            endRound(false, "Out of Time!");
+        }
+    }
+    
+    function handleStreakReset() {
+        streak = 0;
+        localStorage.setItem('pokeStreak', streak);
+    }
+
+    function checkAnswer(selectedName) {
+        if (!isRoundActive) return;
+        if (selectedName === currentCard.name) {
+            let pointsEarned = 100 + (timeLeft * 5); 
+
+            let fastBonus = 0;
+            if (timeLeft >= 25 && hintLevel === 0) {
+                fastBonus = 50;
+                pointsEarned += fastBonus;
+            }
+
+            streak++;
+            localStorage.setItem('pokeStreak', streak);
+
+            let streakBonus = 0;
+            if (streak > 1) {
+                streakBonus = (streak - 1) * 20;
+                pointsEarned += streakBonus;
+            }
+
+            score += pointsEarned;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('pokeHighScore', highScore);
+            }
+
+            let messageHTML = `+${pointsEarned} Pts`;
+            let bonusHTML = [];
+            
+            if (fastBonus > 0) bonusHTML.push(`<span class="bonus-badge badge-fast">Fast Guess</span>`);
+            if (streakBonus > 0) bonusHTML.push(`<span class="bonus-badge badge-streak">Streak x${streak}</span>`);
+            
+            if (bonusHTML.length > 0) {
+                messageHTML += `<br><div style="margin-top: 4px;">${bonusHTML.join(" ")}</div>`;
+            }
+
+            endRound(true, messageHTML);
+        } else {
+            handleStreakReset();
+            endRound(false, `Streak Reset.`);
+        }
+    }
+
+    async function endRound(isWin, message) {
+        isRoundActive = false;
+        clearInterval(timerInterval);
+        cardImage.className = 'mystery-card reveal-full'; 
+        
+        const btns = optionsContainer.querySelectorAll('button');
+        btns.forEach(btn => btn.disabled = true);
+        hintBtn.disabled = true;
+
+        updateUI();
+
+        resultTitle.innerText = isWin ? "CORRECT!" : "INCORRECT!";
+        resultTitle.style.color = isWin ? "#4CAF50" : "var(--poke-red)";
+        
+        resultMessage.innerHTML = message;
+        resultBanner.classList.add('show');
+
+        setTimeout(() => {
+            resultBanner.classList.remove('show');
+            
+            setTimeout(async () => {
+                await animateSnake(true);
+                
+                const usedIds = currentRoundCards.map(c => c.id);
+                cardPool = cardPool.filter(c => !usedIds.includes(c.id));
+                
+                startRound(); 
+            }, 350); 
+            
+        }, 1800); 
+    }
+
+    function openInfoModal() { infoModal.style.display = "flex"; }
+    function closeInfoModal() { infoModal.style.display = "none"; }
+
+    function updateUI() {
+        scoreEl.innerText = score;
+        timeEl.innerText = timeLeft;
+        highScoreEl.innerText = highScore;
+        streakEl.innerText = streak;
+    }
+
+    initGame();
+</script>
+
+</body>
+</html>

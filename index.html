@@ -514,8 +514,7 @@
 
     const MAX_ROUNDS = 10;
     let currentRound = 1;
-    let masterPool = []; 
-    let cardPool = [];
+    let cardPool = []; // We only need one pool again!
     let currentCard = null;
     let currentRoundCards = []; 
     let hintLevel = 0;
@@ -595,8 +594,9 @@
 
             const shuffledQueries = allQueries.sort(() => 0.5 - Math.random());
 
+            // NEW MATH: 5 eras give 6 cards, 2 eras give 5 cards = exactly 40 unique cards!
             const fetchPromises = shuffledQueries.map((queryObj, index) => {
-                const fetchSize = index < 3 ? 2 : 1;
+                const fetchSize = index < 5 ? 6 : 5;
                 const encoded = encodeURIComponent(queryObj.q);
                 return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=${fetchSize}&page=${queryObj.page}`, {
                     headers: { "X-Api-Key": apiKey }
@@ -613,17 +613,15 @@
             let rawCards = combinedData.filter(card => card.images && card.images.large);
             
             let uniqueNames = new Set();
-            masterPool = [];
+            cardPool = [];
             for (let card of rawCards) {
                 if (!uniqueNames.has(card.name)) {
                     uniqueNames.add(card.name);
-                    masterPool.push(card);
+                    cardPool.push(card);
                 }
             }
-
-            cardPool = [...masterPool];
             
-            if(cardPool.length >= 10) { startRound(); } 
+            if(cardPool.length >= 4) { startRound(); } 
             else { throw new Error("Retrying..."); }
         } catch (error) {
             optionsContainer.innerHTML = `<p style="grid-column: span 2; text-align: center;"><b>Error:</b> Retrying...</p>`;
@@ -637,7 +635,7 @@
             return;
         }
 
-        if (cardPool.length < 1 || masterPool.length < 4) { initGame(); return; }
+        if (cardPool.length < 4) { initGame(); return; }
 
         isRoundActive = true;
         hintLevel = 0;
@@ -650,13 +648,10 @@
 
         updateUI();
 
+        // Take the top 4 unique cards from the pool for this round
         cardPool = cardPool.sort(() => 0.5 - Math.random());
-        currentCard = cardPool[0];
-
-        let wrongOptions = masterPool.filter(c => c.name !== currentCard.name);
-        wrongOptions = wrongOptions.sort(() => 0.5 - Math.random()).slice(0, 3);
-
-        currentRoundCards = [currentCard, ...wrongOptions];
+        currentRoundCards = cardPool.slice(0, 4);
+        currentCard = currentRoundCards[0];
 
         cardImage.style.opacity = 0;
         cardImage.style.transition = 'none';
@@ -721,7 +716,9 @@
             setTimeout(async () => {
                 await animateSnake(true);
                 
-                cardPool = cardPool.filter(c => c.id !== currentCard.id);
+                // CRITICAL FIX: Throw away ALL 4 cards used in this round so they never appear again.
+                const usedIds = currentRoundCards.map(c => c.id);
+                cardPool = cardPool.filter(c => !usedIds.includes(c.id));
                 
                 currentRound++; 
                 startRound(); 

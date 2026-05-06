@@ -264,6 +264,45 @@
         .hint-btn { background-color: white; color: var(--poke-red); box-shadow: 0 4px 0 #cccccc, 0 4px 4px rgba(0,0,0,0.3); width: 100%; padding: 10px; font-size: 0.9rem; }
         .hint-btn:active:not(:disabled) { box-shadow: 0 0px 0 #cccccc; }
 
+        /* --- LOADING ANIMATION --- */
+        .loading-container {
+            grid-column: span 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .pokeball-loader {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid var(--poke-dark);
+            background: linear-gradient(to bottom, var(--poke-red) 46%, var(--poke-dark) 46%, var(--poke-dark) 54%, white 54%);
+            position: relative;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 8px;
+        }
+        
+        .pokeball-loader::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background-color: white;
+            border: 3px solid var(--poke-dark);
+            border-radius: 50%;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         /* --- MODALS --- */
         .modal-overlay {
             position: fixed;
@@ -376,7 +415,10 @@
         </div>
 
         <div class="options-grid" id="optionsContainer">
-            <p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Shuffling cards from all eras...</p>
+            <div class="loading-container">
+                <div class="pokeball-loader"></div>
+                <p style="font-family: 'Fredoka', sans-serif; margin: 0; text-align: center;">Shuffling cards from all eras...</p>
+            </div>
         </div>
 
         <button class="hint-btn" id="hintBtn" onclick="useHint()" disabled>Use Hint (-5 Secs)</button>
@@ -522,9 +564,16 @@
         });
     }
 
+    const loadingHTML = `
+        <div class="loading-container">
+            <div class="pokeball-loader"></div>
+            <p style="font-family: 'Fredoka', sans-serif; margin: 0; text-align: center;">Shuffling cards from all eras...</p>
+        </div>
+    `;
+
     async function initGame() {
         updateUI(); 
-        optionsContainer.innerHTML = `<p style="grid-column: span 2; font-family: 'Fredoka', sans-serif; text-align: center; margin: 10px 0;">Loading Database...</p>`;
+        optionsContainer.innerHTML = loadingHTML;
         
         const apiKey = "c7f8ecf9-8793-4fd6-a929-2282bf5fb09f"; 
         try {
@@ -538,12 +587,9 @@
                 { q: 'subtypes:MEGA', page: Math.floor(Math.random() * 8) + 1 }
             ];
 
-            // Shuffle the 7 eras so the distribution is random every time
             const shuffledQueries = allQueries.sort(() => 0.5 - Math.random());
 
             const fetchPromises = shuffledQueries.map((queryObj, index) => {
-                // The first 3 eras will request 2 cards, the remaining 4 will request 1 card.
-                // 3 * 2 = 6 cards. 4 * 1 = 4 cards. Total = exactly 10 cards.
                 const fetchSize = index < 3 ? 2 : 1;
                 const encoded = encodeURIComponent(queryObj.q);
                 return fetch(`https://api.pokemontcg.io/v2/cards?q=${encoded}&pageSize=${fetchSize}&page=${queryObj.page}`, {
@@ -574,7 +620,7 @@
             if(cardPool.length >= 10) { startRound(); } 
             else { throw new Error("Retrying..."); }
         } catch (error) {
-            optionsContainer.innerHTML = `<p style="grid-column: span 2;"><b>Error:</b> Retrying...</p>`;
+            optionsContainer.innerHTML = `<p style="grid-column: span 2; text-align: center;"><b>Error:</b> Retrying...</p>`;
             setTimeout(initGame, 2000);
         }
     }
